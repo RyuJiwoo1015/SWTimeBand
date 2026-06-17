@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time band - 밴드 합주 일정 조율</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden">
+        <header class="bg-indigo-600 text-white p-6 text-center">
+            <h1 class="text-3xl font-bold tracking-wide">⌛ Time band</h1>
+            <p class="text-indigo-200 mt-2 text-sm">멤버들이 불가능한 시간만 빼서 한눈에 확인하는 프로그램</p>
+        </header>
+
+        <main class="p-6">
+            
+            <section id="create-room-section" class="space-y-6">
+                <div class="border-b pb-4">
+                    <h2 class="text-xl font-bold text-gray-700">🎸 새로운 합주 방 만들기</h2>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">합주 곡 제목</label>
+                    <input type="text" id="room-title" placeholder="예: 첫 합주 연습, Copy 곡명" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">일정 조율 시작일</label>
+                        <input type="date" id="room-start-date" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">일정 조율 종료일</label>
+                        <input type="date" id="room-end-date" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-1">필수 참여 포지션 (쉼표로 구분)</label>
+                    <input type="text" id="required-positions" placeholder="예: 보컬, 세컨기타, 베이스, 드럼" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <button onclick="createRoom()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow">
+                    합주 방 생성 및 공유 링크 만들기
+                </button>
+            </section>
+
+            <section id="room-active-section" class="hidden space-y-8">
+                <div class="bg-indigo-50 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 id="active-title" class="text-2xl font-bold text-indigo-900"></h2>
+                        <p id="active-info" class="text-sm text-indigo-700 mt-1"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="copyShareLink()" class="bg-white text-indigo-600 border border-indigo-300 font-semibold px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors text-sm">
+                            🔗 초대 링크 복사
+                        </button>
+                        <button onclick="resetRoom()" class="bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm">
+                            처음으로
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <h3 class="font-bold text-lg text-gray-700 border-b pb-2">✏️ 내 일정 입력</h3>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">이름</label>
+                            <input type="text" id="user-name" placeholder="본인 이름" class="w-full border bg-white rounded-lg p-2 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">포지션</label>
+                            <input type="text" id="user-position" placeholder="예: 보컬" class="w-full border bg-white rounded-lg p-2 outline-none">
+                        </div>
+                        
+                        <div class="border-t pt-3 mt-2 space-y-3">
+                            <h4 class="font-semibold text-sm text-gray-700">🚨 불가능한 날짜/시간 선택</h4>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">날짜 선택 (설정된 기간 내)</label>
+                                <select id="block-date" class="w-full border bg-white rounded p-2 text-sm outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">시간 범위 (30분 단위)</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <select id="block-start" class="border bg-white rounded p-1.5 text-xs"></select>
+                                    <select id="block-end" class="border bg-white rounded p-1.5 text-xs"></select>
+                                </div>
+                            </div>
+                            <button onclick="addImpossibleTime()" class="w-full bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-2 rounded transition-colors">
+                                ❌ 이 날짜/시간 추가
+                            </button>
+                        </div>
+
+                        <div class="mt-4">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">내가 등록 중인 불가 목록:</h4>
+                            <ul id="my-block-list" class="space-y-1 text-xs max-h-32 overflow-y-auto"></ul>
+                        </div>
+
+                        <button onclick="submitMySchedule()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow mt-2">
+                            스케줄 제출하기
+                        </button>
+                    </div>
+
+                    <div class="lg:col-span-2 space-y-6">
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-700 mb-2">👥 멤버 입력 현황 (<span id="status-count">0</span>명 완료)</h3>
+                            <div id="member-status-badges" class="flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <div class="bg-gray-900 text-emerald-400 p-6 rounded-xl font-mono shadow-inner min-h-[150px]">
+                            <h3 class="text-gray-400 font-sans font-bold text-sm mb-3 border-b border-gray-800 pb-2">
+                                📅 최적의 합주 시간대 계산 결과
+                            </h3>
+                            <div id="result-display" class="space-y-2 text-sm md:text-base whitespace-pre-line">
+                                정보를 입력하면 텍스트 형식으로 결과가 도출됩니다.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        let currentRoomId = null;
+        let myTemporaryBlocks = []; 
+        const TIME_SLOTS = []; 
+
+        // 30분 단위 시간 목록 생성 (00:00 ~ 24:00)
+        function initTimeSlots() {
+            const startSelect = document.getElementById('block-start');
+            const endSelect = document.getElementById('block-end');
+            
+            for (let h = 0; h < 24; h++) {
+                for (let m of ['00', '30']) {
+                    const timeStr = `${String(h).padStart(2, '0')}:${m}`;
+                    TIME_SLOTS.push(timeStr);
+                    
+                    const optStart = document.createElement('option');
+                    optStart.value = timeStr; optStart.innerText = timeStr;
+                    startSelect.appendChild(optStart);
+
+                    const optEnd = document.createElement('option');
+                    optEnd.value = timeStr; optEnd.innerText = timeStr;
+                    endSelect.appendChild(optEnd);
+                }
+            }
+            const optMax = document.createElement('option');
+            optMax.value = "24:00"; optMax.innerText = "24:00";
+            endSelect.appendChild(optMax);
+            endSelect.value = "24:00";
+        }
+        initTimeSlots();
+
+        // 로드 시 URL 체크
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+            if (roomId) {
+                currentRoomId = roomId;
+                loadRoomData(roomId);
+            }
+        });
+
+        // 1. 방 생성 (로컬 스토리지 저장 방식으로 에러 차단)
+        function createRoom() {
+            const title = document.getElementById('room-title').value.trim();
+            const startDate = document.getElementById('room-start-date').value;
+            const endDate = document.getElementById('room-end-date').value;
+            const requiredInput = document.getElementById('required-positions').value;
+
+            if (!title || !startDate || !endDate || !requiredInput) {
+                alert('모든 항목을 입력해주세요!');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('종료일은 시작일보다 나중이어야 합니다.');
+                return;
+            }
+
+            const requiredPositions = requiredInput.split(',').map(p => p.trim()).filter(p => p !== "");
+            const roomId = 'room_' + Date.now();
+
+            const roomData = {
+                title: title,
+                startDate: startDate,
+                endDate: endDate,
+                requiredPositions: requiredPositions,
+                schedules: {} // 멤버 스케줄이 쌓일 공간
+            };
+
+            localStorage.setItem(roomId, JSON.stringify(roomData));
+            currentRoomId = roomId;
+
+            // 주소창 업데이트 및 로드
+            const newUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+            loadRoomData(roomId);
+        }
+
+        // 두 날짜 사이 기간 구하기 
+        function getDatesInRange(startDate, endDate) {
+            const dates = [];
+            let curr = new Date(startDate);
+            const end = new Date(endDate);
+            while (curr <= end) {
+                dates.push(curr.toISOString().split('T')[0]);
+                curr.setDate(curr.getDate() + 1);
+            }
+            return dates;
+        }
+
+        // 2. 방 데이터 불러오기 및 날짜 셀렉트 박스 동적 매핑
+        function loadRoomData(roomId) {
+            const rawData = localStorage.getItem(roomId);
+            if (!rawData) {
+                alert("방 정보를 찾을 수 없습니다.");
+                resetRoom();
+                return;
+            }
+
+            const room = JSON.parse(rawData);
+            
+            document.getElementById('create-room-section').classList.add('hidden');
+            document.getElementById('room-active-section').classList.remove('hidden');
+
+            document.getElementById('active-title').innerText = `🎵 [${room.title}]`;
+            document.getElementById('active-info').innerText = `기간: ${room.startDate} ~ ${room.endDate} | 필수 포지션: ${room.requiredPositions.join(', ')}`;
+
+            // ★ 버그 해결 고리: 설정된 기간에 맞춰 날짜 선택 셀렉트박스 목록 교체
+            const dateSelect = document.getElementById('block-date');
+            dateSelect.innerHTML = '';
+            const rangeDates = getDatesInRange(room.startDate, room.endDate);
+            
+            rangeDates.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.innerText = d;
+                dateSelect.appendChild(opt);
+            });
+
+            // 현황판 및 스케줄 연산 업데이트 호출
+            refreshDashboard(room);
+        }
+
+        // 임시 불가 스케줄 쌓기
+        function addImpossibleTime() {
+            const date = document.getElementById('block-date').value;
+            const start = document.getElementById('block-start').value;
+            const end = document.getElementById('block-end').value;
+
+            if (TIME_SLOTS.indexOf(start) >= TIME_SLOTS.indexOf(end)) {
+                alert('시작 시간은 종료 시간보다 빨라야 합니다.');
+                return;
+            }
+
+            const targetStr = `${date}|${start}~${end}`;
+            if (!myTemporaryBlocks.includes(targetStr)) {
+                myTemporaryBlocks.push(targetStr);
+                renderMyBlocks();
+            }
+        }
+
+        function renderMyBlocks() {
+            const listEl = document.getElementById('my-block-list');
+            listEl.innerHTML = '';
+            myTemporaryBlocks.forEach((b, idx) => {
+                const [d, t] = b.split('|');
+                listEl.innerHTML += `<li class="flex justify-between items-center bg-red-50 text-red-700 p-1 rounded">
+                    <span>❌ ${d} [${t}]</span>
+                    <button onclick="removeMyBlock(${idx})" class="font-bold px-1 text-red-500">×</button>
+                </li>`;
+            });
+        }
+
+        function removeMyBlock(idx) {
+            myTemporaryBlocks.splice(idx, 1);
+            renderMyBlocks();
+        }
+
+        // 3. 내 스케줄 데이터 최종 등록
+        function submitMySchedule() {
+            const name = document.getElementById('user-name').value.trim();
+            const position = document.getElementById('user-position').value.trim();
+
+            if (!name || !position) {
+                alert('이름과 포지션을 입력해주세요.');
+                return;
+            }
+
+            const room = JSON.parse(localStorage.getItem(currentRoomId));
+            const memberId = `${name}(${position})`;
+
+            room.schedules[memberId] = {
+                name: name,
+                position: position,
+                impossibleBlocks: myTemporaryBlocks
+            };
+
+            localStorage.setItem(currentRoomId, JSON.stringify(room));
+            alert('스케줄이 성공적으로 등록되었습니다.');
+            
+            // 입력 폼 초기화 및 새로고침
+            myTemporaryBlocks = [];
+            renderMyBlocks();
+            refreshDashboard(room);
+        }
+
+        // 대시보드 새로고침 및 복합 기간 연산 처리
+        function refreshDashboard(room) {
+            const members = Object.values(room.schedules);
+            document.getElementById('status-count').innerText = members.length;
+            
+            const badgeContainer = document.getElementById('member-status-badges');
+            badgeContainer.innerHTML = '';
+
+            const requiredList = [...room.requiredPositions];
+            members.forEach(m => {
+                badgeContainer.innerHTML += `<span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-semibold">🟢 ${m.name} [${m.position}]</span>`;
+                const idx = requiredList.indexOf(m.position);
+                if (idx > -1) requiredList.splice(idx, 1);
+            });
+            requiredList.forEach(pos => {
+                badgeContainer.innerHTML += `<span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold">🟡 [${pos}] 대기</span>`;
+            });
+
+            const resultDisplay = document.getElementById('result-display');
+            if (members.length === 0) {
+                resultDisplay.innerHTML = "멤버들이 일정을 입력하면 매칭 결과가 이곳에 출력됩니다.";
+                return;
+            }
+
+            const rangeDates = getDatesInRange(room.startDate, room.endDate);
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            
+            let allPassOutputs = [];
+            let backupOutputs = [];
+
+            // 기간 내의 모든 날짜를 순회하며 30분 단위 슬롯 분석
+            rangeDates.forEach(dateStr => {
+                const dayOfWeek = days[new Date(dateStr).getDay()];
+                let dailySlots = [];
+
+                for (let i = 0; i < TIME_SLOTS.length - 1; i++) {
+                    let currentStart = TIME_SLOTS[i];
+                    let nextEnd = TIME_SLOTS[i+1];
+                    let missingMembers = [];
+
+                    members.forEach(m => {
+                        let isImpossible = false;
+                        m.impossibleBlocks.forEach(block => {
+                            const [bDate, bTime] = block.split('|');
+                            if (bDate === dateStr) {
+                                let [bStart, bEnd] = bTime.split('~');
+                                let idxStart = TIME_SLOTS.indexOf(bStart);
+                                let idxEnd = TIME_SLOTS.indexOf(bEnd);
+                                let myIdx = TIME_SLOTS.indexOf(currentStart);
+
+                                if (myIdx >= idxStart && myIdx < idxEnd) {
+                                    isImpossible = true;
+                                }
+                            }
+                        });
+                        if (isImpossible) missingMembers.push(m);
+                    });
+
+                    dailySlots.push({
+                        date: dateStr,
+                        dayOfWeek: dayOfWeek,
+                        start: currentStart,
+                        end: nextEnd,
+                        isAllPass: missingMembers.length === 0,
+                        missingMembers: missingMembers
+                    });
+                }
+
+                // 연속 시간 묶기
+                let passGroups = groupContinuousSlots(dailySlots.filter(s => s.isAllPass));
+                passGroups.forEach(g => {
+                    allPassOutputs.push(`<div>[${dateStr}](${dayOfWeek}요일) &lt;${g.start} ~ ${g.end}&gt; 가능합니다.</div>`);
+                });
+
+                // 차선책 연산 (필수 포지션 만족 여부)
+                const reqPos = room.requiredPositions;
+                let backupSlots = dailySlots.filter(s => {
+                    const hasMissingRequired = s.missingMembers.some(m => reqPos.includes(m.position));
+                    return !hasMissingRequired && s.missingMembers.length > 0;
+                });
+                
+                let backupGroups = groupContinuousSlots(backupSlots);
+                backupGroups.forEach(g => {
+                    let missingInfoMap = {};
+                    g.slots.forEach(s => {
+                        s.missingMembers.forEach(m => { missingInfoMap[m.name] = m.position; });
+                    });
+                    let missingStrings = Object.entries(missingInfoMap).map(([name, pos]) => `${pos} ${name}`);
+                    
+                    backupOutputs.push(`<div>[${dateStr}](${dayOfWeek}요일) &lt;${g.start} ~ ${g.end}&gt; 가능합니다. <span class="text-amber-400 text-xs">(${missingStrings.join(', ')} 제외)</span></div>`);
+                });
+            });
+
+            // 텍스트 출력 서식 적용
+            if (allPassOutputs.length > 0) {
+                resultDisplay.innerHTML = `<p class="text-emerald-300 font-bold mb-2">🎉 전원 참석 가능한 시간대</p>` + allPassOutputs.join('');
+            } else if (backupOutputs.length > 0) {
+                resultDisplay.innerHTML = `<p class="text-amber-300 font-bold mb-2">⚠️ 차선책 일정 (필수 포지션 만족)</p>` + backupOutputs.join('');
+            } else {
+                resultDisplay.innerHTML = `<p class="text-red-400">❌ 조건에 맞는 합주 가능 일정이 없습니다.</p>`;
+            }
+        }
+
+        function groupContinuousSlots(slots) {
+            if (slots.length === 0) return [];
+            let groups = [];
+            let currentGroup = [slots[0]];
+
+            for (let i = 1; i < slots.length; i++) {
+                if (slots[i-1].end === slots[i].start) {
+                    currentGroup.push(slots[i]);
+                } else {
+                    groups.push(currentGroup);
+                    currentGroup = [slots[i]];
+                }
+            }
+            groups.push(currentGroup);
+            return groups.map(g => ({ start: g[0].start, end: g[g.length - 1].end, slots: g }));
+        }
+
+        function copyShareLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                alert('링크가 복사되었습니다! 이 링크로 들어오면 기존 데이터가 유지됩니다.');
+            }).catch(() => {
+                alert('주소창의 URL을 직접 복사해서 공유해주세요!');
+            });
+        }
+
+        function resetRoom() {
+            window.history.pushState({}, '', window.location.origin + window.location.pathname);
+            location.reload();
+        }
+    </script>
+</body>
+</html>

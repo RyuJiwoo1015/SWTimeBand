@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time band - 밴드 합주 일정 조율</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .no-select { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+        .time-slot-cell { transition: background-color 0.05s ease; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen p-4 md:p-8 no-select">
+
+    <div class="max-w-6xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden">
+        <header class="bg-indigo-600 text-white p-6 text-center">
+            <h1 class="text-3xl font-bold tracking-wide">⌛ Time band</h1>
+            <p class="text-indigo-200 mt-2 text-sm">드래그로 불가능한 시간을 빼서 한눈에 합주 일정을 조율하세요</p>
+        </header>
+
+        <main class="p-6">
+            
+            <section id="create-room-section" class="space-y-6">
+                <div class="border-b pb-4">
+                    <h2 class="text-xl font-bold text-gray-700">🎸 새로운 합주 방 만들기</h2>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">합주 곡 제목</label>
+                    <input type="text" id="room-title" placeholder="예: 첫 합주 연습, Copy 곡명" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">일정 조율 시작일</label>
+                        <input type="date" id="room-start-date" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">일정 조율 종료일</label>
+                        <input type="date" id="room-end-date" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-1">필수 참여 포지션 (쉼표로 구분)</label>
+                    <input type="text" id="required-positions" placeholder="예: 보컬, 세컨기타, 베이스, 드럼" class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <p class="text-xs text-gray-500 mt-1">* 전원 공통 시간이 없을 때, 위 포지션들이 모두 참석 가능한 차선책을 가려내는 데 사용됩니다.</p>
+                </div>
+                <button onclick="createRoom()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow">
+                    합주 방 생성 및 공유 링크 만들기
+                </button>
+            </section>
+
+            <section id="room-active-section" class="hidden space-y-8">
+                <div class="bg-indigo-50 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 id="active-title" class="text-2xl font-bold text-indigo-900"></h2>
+                        <p id="active-info" class="text-sm text-indigo-700 mt-1"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="copyShareLink()" class="bg-white text-indigo-600 border border-indigo-300 font-semibold px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors text-sm">
+                            🔗 초대 링크 복사
+                        </button>
+                        <button onclick="resetRoom()" class="bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm">
+                            처음으로
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-8">
+                    
+                    <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4">
+                        <h3 class="font-bold text-lg text-gray-700 border-b pb-2">✏️ 내 정보 및 불가능한 시간 등록</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">이름</label>
+                                <input type="text" id="user-name" placeholder="본인 이름" class="w-full border bg-white rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">내 포지션 파트</label>
+                                <input type="text" id="user-position" placeholder="예: 보컬, 드럼, 건반" class="w-full border bg-white rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <p class="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                                🚨 아래 시간 표에서 <span class="text-red-600 font-bold">불가능한 시간대를 마우스로 드래그</span>하여 붉게 지정하세요.
+                            </p>
+                            <p class="text-xs text-gray-400 mt-0.5">* 마우스를 누른 채 움직이면 다중 선택되며, 붉은 칸을 다시 드래그하면 취소됩니다.</p>
+                        </div>
+
+                        <div class="overflow-x-auto border rounded-xl bg-white p-2">
+                            <table class="w-full text-center border-collapse text-xs min-w-[600px]">
+                                <thead>
+                                    <tr id="grid-header-row" class="bg-gray-100 font-bold text-gray-600 border-b">
+                                        <th class="p-2 border-r bg-gray-200 w-24">시간 / 날짜</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grid-body">
+                                    </tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button onclick="submitMySchedule()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-3 rounded-xl transition-colors shadow-lg">
+                                내 일정 스케줄 최종 제출하기
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-4 rounded-xl border border-gray-200 space-y-3 shadow-sm">
+                            <h3 class="font-bold text-md text-gray-700 border-b pb-2 flex justify-between items-center">
+                                <span>👥 전체 인원 제출 현황</span>
+                                <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full"><span id="status-count">0</span>명 완료</span>
+                            </h3>
+                            <div id="member-status-list" class="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                                <p class="text-xs text-gray-400 text-center py-4">아직 등록된 인원이 없습니다.</p>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-2 bg-gray-900 text-emerald-400 p-6 rounded-xl font-mono shadow-xl relative min-h-[200px]">
+                            <h3 class="text-gray-400 font-sans font-bold text-sm mb-3 border-b border-gray-800 pb-2">
+                                📅 최적의 합주 시간대 계산 결과 (텍스트 양식)
+                            </h3>
+                            <div id="result-display" class="space-y-2 text-sm md:text-base whitespace-pre-line leading-relaxed">
+                                상단 표에 정보를 기입하고 제출하면 연산 결과가 여기에 글자 형식으로 도출됩니다.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        let currentRoomId = null;
+        const TIME_SLOTS = []; 
+        
+        let selectedImpossibleSlots = new Set();
+        let isMouseDown = false;
+        let isSelectingMode = true; 
+
+        function initTimeSlots() {
+            for (let h = 0; h < 24; h++) {
+                for (let m of ['00', '30']) {
+                    TIME_SLOTS.push(`${String(h).padStart(2, '0')}:${m}`);
+                }
+            }
+        }
+        initTimeSlots();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+            if (roomId) {
+                currentRoomId = roomId;
+                loadRoomData(roomId);
+            }
+            window.addEventListener('mouseup', () => { isMouseDown = false; });
+        });
+
+        function createRoom() {
+            const title = document.getElementById('room-title').value.trim();
+            const startDate = document.getElementById('room-start-date').value;
+            const endDate = document.getElementById('room-end-date').value;
+            const requiredInput = document.getElementById('required-positions').value;
+
+            if (!title || !startDate || !endDate || !requiredInput) {
+                alert('모든 설정 항목을 빈틈없이 채워주세요!');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('종료일은 시작일보다 이후의 날짜여야 합니다.');
+                return;
+            }
+
+            const requiredPositions = requiredInput.split(',').map(p => p.trim()).filter(p => p !== "");
+            const roomId = 'room_' + Date.now();
+
+            const roomData = {
+                title: title,
+                startDate: startDate,
+                endDate: endDate,
+                requiredPositions: requiredPositions,
+                schedules: {} 
+            };
+
+            localStorage.setItem(roomId, JSON.stringify(roomData));
+            currentRoomId = roomId;
+
+            const newUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+            loadRoomData(roomId);
+        }
+
+        function getDatesInRange(startDate, endDate) {
+            const dates = [];
+            let curr = new Date(startDate);
+            const end = new Date(endDate);
+            while (curr <= end) {
+                dates.push(curr.toISOString().split('T')[0]);
+                curr.setDate(curr.getDate() + 1);
+            }
+            return dates;
+        }
+
+        // 방 데이터 읽기 및 표 드로잉
+        function loadRoomData(roomId) {
+            const rawData = localStorage.getItem(roomId);
+            if (!rawData) {
+                alert("방 정보를 식별하지 못했습니다.");
+                resetRoom();
+                return;
+            }
+
+            const room = JSON.parse(rawData);
+            
+            document.getElementById('create-room-section').classList.add('hidden');
+            document.getElementById('room-active-section').classList.remove('hidden');
+
+            document.getElementById('active-title').innerText = `🎵 [${room.title}]`;
+            document.getElementById('active-info').innerText = `기간: ${room.startDate} ~ ${room.endDate} | 필수 조건 파트: ${room.requiredPositions.join(', ')}`;
+
+            const rangeDates = getDatesInRange(room.startDate, room.endDate);
+            
+            const headerRow = document.getElementById('grid-header-row');
+            headerRow.innerHTML = '<th class="p-2 border-r bg-gray-200 w-24 text-sm">시간 / 날짜</th>';
+            rangeDates.forEach(d => {
+                const th = document.createElement('th');
+                th.className = "p-2 border-r border-b text-gray-700 font-semibold";
+                th.innerText = d.substring(5); 
+                headerRow.appendChild(th);
+            });
+
+            const gridBody = document.getElementById('grid-body');
+            gridBody.innerHTML = '';
+
+            TIME_SLOTS.forEach(timeStr => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50";
+
+                const timeTd = document.createElement('td');
+                timeTd.className = "p-1.5 border-r bg-gray-50 font-medium text-gray-500 text-center";
+                timeTd.innerText = timeStr;
+                tr.appendChild(timeTd);
+
+                rangeDates.forEach(dateStr => {
+                    const cellTd = document.createElement('td');
+                    cellTd.className = "p-2.5 border-r time-slot-cell bg-white cursor-pointer select-none border-b border-gray-100";
+                    cellTd.dataset.date = dateStr;
+                    cellTd.dataset.time = timeStr;
+                    
+                    // 핵심 기믹: 안정적인 자바스크립트 인라인 스타일 조작으로 색상 반전 처리
+                    cellTd.addEventListener('mousedown', (e) => {
+                        isMouseDown = true;
+                        const key = `${dateStr}|${timeStr}`;
+                        if (selectedImpossibleSlots.has(key)) {
+                            isSelectingMode = false;
+                            selectedImpossibleSlots.delete(key);
+                            cellTd.style.backgroundColor = '#ffffff'; // 백색 복원
+                        } else {
+                            isSelectingMode = true;
+                            selectedImpossibleSlots.add(key);
+                            cellTd.style.backgroundColor = '#f87171'; // 확실한 빨간색(Red-400) 매핑
+                        }
+                        e.preventDefault();
+                    });
+
+                    cellTd.addEventListener('mouseenter', () => {
+                        if (!isMouseDown) return;
+                        const key = `${dateStr}|${timeStr}`;
+                        if (isSelectingMode) {
+                            selectedImpossibleSlots.add(key);
+                            cellTd.style.backgroundColor = '#f87171';
+                        } else {
+                            selectedImpossibleSlots.delete(key);
+                            cellTd.style.backgroundColor = '#ffffff';
+                        }
+                    });
+
+                    tr.appendChild(cellTd);
+                });
+
+                gridBody.appendChild(tr);
+            });
+
+            refreshDashboard(room);
+        }
+
+        function submitMySchedule() {
+            const name = document.getElementById('user-name').value.trim();
+            const position = document.getElementById('user-position').value.trim();
+
+            if (!name || !position) {
+                alert('본인의 이름과 담당 포지션 파트를 기입해 주세요.');
+                return;
+            }
+
+            const room = JSON.parse(localStorage.getItem(currentRoomId));
+            const memberId = `${name}(${position})`;
+
+            room.schedules[memberId] = {
+                name: name,
+                position: position,
+                impossibleBlocks: Array.from(selectedImpossibleSlots) 
+            };
+
+            localStorage.setItem(currentRoomId, JSON.stringify(room));
+            alert('스케줄이 정상 보존 및 제출되었습니다.');
+            
+            document.getElementById('user-name').value = '';
+            document.getElementById('user-position').value = '';
+            selectedImpossibleSlots.clear();
+            
+            // 모든 셀의 배경색 인라인 스타일 초기화
+            document.querySelectorAll('.time-slot-cell').forEach(el => el.style.backgroundColor = '#ffffff');
+            
+            refreshDashboard(room);
+        }
+
+        function refreshDashboard(room) {
+            const members = Object.values(room.schedules);
+            document.getElementById('status-count').innerText = members.length;
+            
+            const statusListEl = document.getElementById('member-status-list');
+            if (members.length === 0) {
+                statusListEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">아직 등록된 인원이 없습니다.</p>';
+            } else {
+                statusListEl.innerHTML = '';
+                members.forEach(m => {
+                    statusListEl.innerHTML += `
+                        <div class="p-2.5 bg-gray-50 border rounded-lg flex justify-between items-center text-xs">
+                            <span class="font-bold text-gray-700">${m.name}</span>
+                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-semibold rounded">${m.position}</span>
+                        </div>`;
+                });
+            }
+
+            const resultDisplay = document.getElementById('result-display');
+            if (members.length === 0) {
+                resultDisplay.innerHTML = "멤버들이 상단 표에 드래그하여 일정을 제출하면 매칭 텍스트가 노출됩니다.";
+                return;
+            }
+
+            const rangeDates = getDatesInRange(room.startDate, room.endDate);
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            
+            let allPassOutputs = [];
+            let backupOutputs = [];
+
+            rangeDates.forEach(dateStr => {
+                const dayOfWeek = days[new Date(dateStr).getDay()];
+                let dailySlots = [];
+
+                for (let i = 0; i < TIME_SLOTS.length; i++) {
+                    let currentSlotTime = TIME_SLOTS[i];
+                    
+                    let [h, m] = currentSlotTime.split(':').map(Number);
+                    m += 30; if (m >= 60) { h += 1; m = 0; }
+                    let nextEndTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+                    let missingMembers = [];
+
+                    members.forEach(m => {
+                        const checkKey = `${dateStr}|${currentSlotTime}`;
+                        if (m.impossibleBlocks.includes(checkKey)) {
+                            missingMembers.push(m);
+                        }
+                    });
+
+                    dailySlots.push({
+                        date: dateStr,
+                        dayOfWeek: dayOfWeek,
+                        start: currentSlotTime,
+                        end: nextEndTime,
+                        isAllPass: missingMembers.length === 0,
+                        missingMembers: missingMembers
+                    });
+                }
+
+                let passGroups = groupContinuousSlots(dailySlots.filter(s => s.isAllPass));
+                passGroups.forEach(g => {
+                    allPassOutputs.push(`<div>▶ [${dateStr}](${dayOfWeek}요일) &lt;${g.start} ~ ${g.end}&gt; 가능합니다.</div>`);
+                });
+
+                const reqPos = room.requiredPositions;
+                let backupSlots = dailySlots.filter(s => {
+                    const isMissingRequired = s.missingMembers.some(m => reqPos.includes(m.position));
+                    return !isMissingRequired && s.missingMembers.length > 0;
+                });
+                
+                let backupGroups = groupContinuousSlots(backupSlots);
+                backupGroups.forEach(g => {
+                    let missingInfoMap = {};
+                    g.slots.forEach(s => {
+                        s.missingMembers.forEach(m => { missingInfoMap[m.name] = m.position; });
+                    });
+                    let missingStrings = Object.entries(missingInfoMap).map(([name, pos]) => `${pos} ${name}`);
+                    
+                    backupOutputs.push(`<div>▶ [${dateStr}](${dayOfWeek}요일) &lt;${g.start} ~ ${g.end}&gt; 가능합니다. <span class="text-amber-400 font-sans text-xs">(${missingStrings.join(', ')} 제외)</span></div>`);
+                });
+            });
+
+            if (allPassOutputs.length > 0) {
+                resultDisplay.innerHTML = `<p class="text-emerald-300 font-bold mb-2">🎉 전원 참석 가능한 시간대 목록</p>` + allPassOutputs.join('');
+            } else if (backupOutputs.length > 0) {
+                resultDisplay.innerHTML = `<p class="text-amber-300 font-bold mb-2">⚠️ 전원 가능 일정이 없어 [필수 포지션 만족 차선책]을 안내합니다.</p>` + backupOutputs.join('');
+            } else {
+                resultDisplay.innerHTML = `<p class="text-red-400">❌ 필수 포지션 조건마저 만족하는 합주 타임라인이 없습니다.</p>`;
+            }
+        }
+
+        function groupContinuousSlots(slots) {
+            if (slots.length === 0) return [];
+            let groups = [];
+            let currentGroup = [slots[0]];
+
+            for (let i = 1; i < slots.length; i++) {
+                if (slots[i-1].end === slots[i].start) {
+                    currentGroup.push(slots[i]);
+                } else {
+                    groups.push(currentGroup);
+                    currentGroup = [slots[i]];
+                }
+            }
+            groups.push(currentGroup);
+            return groups.map(g => ({ start: g[0].start, end: g[g.length - 1].end, slots: g }));
+        }
+
+        function copyShareLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                alert('초대 주소가 클립보드에 복사되었습니다! 팀원들에게 공유하세요.');
+            }).catch(() => {
+                alert('주소창의 URL 링크를 직접 복사해서 사용해 주세요.');
+            });
+        }
+
+        function resetRoom() {
+            window.history.pushState({}, '', window.location.origin + window.location.pathname);
+            location.reload();
+        }
+    </script>
+</body>
+</html>
